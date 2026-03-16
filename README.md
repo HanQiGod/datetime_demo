@@ -1,16 +1,20 @@
 # datetime_demo
 
-A new Flutter project.
+## Flutter 实现钉钉请假风格的日期时间选择器：从需求到完整方案！
 
-## Getting Started
+### 文章地址[https://mp.weixin.qq.com/s/NBbuQwMrw5MOw-PL1fIRVA]
 
-This project is a starting point for a Flutter application.
+### 当前示例
 
-A few resources to get you started if this is your first Flutter project:
+项目首页已经替换成可直接运行的请假时间选择示例，包含这些能力：
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- 钉钉风格的底部日期时间滚轮选择器
+- 开始时间 / 结束时间联动
+- 30 分钟粒度的时间选择
+- 请假时长自动计算
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+关键文件：
+
+- `lib/leave_date_time_picker.dart`：可复用的底部日期时间选择器
+- `lib/leave_request_example_page.dart`：业务使用示例页面
+- `lib/main.dart`：应用入口，默认打开示例页
