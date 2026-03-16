@@ -18,3 +18,6 @@
 - `lib/leave_date_time_picker.dart`：可复用的底部日期时间选择器
 - `lib/leave_request_example_page.dart`：业务使用示例页面
 - `lib/main.dart`：应用入口，默认打开示例页
+
+### 展示图
+![展示图](assets/images/datetime-demo.gif)
