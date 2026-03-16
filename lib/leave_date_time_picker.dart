@@ -3,6 +3,22 @@ import 'package:flutter/material.dart';
 
 const _minuteInterval = 30;
 
+enum LeaveDayPeriod {
+  morning('上午'),
+  afternoon('下午');
+
+  const LeaveDayPeriod(this.label);
+
+  final String label;
+}
+
+class LeaveDaySelection {
+  const LeaveDaySelection({required this.date, required this.period});
+
+  final DateTime date;
+  final LeaveDayPeriod period;
+}
+
 DateTime normalizeToMinuteInterval(
   DateTime value, {
   int minuteInterval = _minuteInterval,
@@ -55,6 +71,34 @@ Future<DateTime?> showLeaveDateTimePicker({
     ),
     builder: (context) {
       return _LeaveDateTimePickerSheet(
+        title: title,
+        helperText: helperText,
+        initialValue: initialValue,
+        minimumDate: minimumDate,
+        maximumDate: maximumDate,
+      );
+    },
+  );
+}
+
+Future<LeaveDaySelection?> showLeaveDayPicker({
+  required BuildContext context,
+  required String title,
+  required LeaveDaySelection initialValue,
+  required DateTime minimumDate,
+  required DateTime maximumDate,
+  String? helperText,
+}) {
+  return showModalBottomSheet<LeaveDaySelection>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.white,
+    barrierColor: Colors.black.withValues(alpha: 0.32),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+    ),
+    builder: (context) {
+      return _LeaveDayPickerSheet(
         title: title,
         helperText: helperText,
         initialValue: initialValue,
@@ -163,6 +207,223 @@ class _LeaveDateTimePickerSheetState extends State<_LeaveDateTimePickerSheet> {
 
   @override
   Widget build(BuildContext context) {
+    return _PickerScaffold(
+      title: widget.title,
+      helperText: widget.helperText ?? '已选时间',
+      summaryText: _formatDateTimeSummary(_selectedValue),
+      leftTitle: '日期',
+      rightTitle: '时间',
+      onCancel: () => Navigator.of(context).pop(),
+      onConfirm: () => Navigator.of(context).pop(_selectedValue),
+      pickerContent: Row(
+        children: [
+          Expanded(
+            child: CupertinoPicker(
+              itemExtent: 44,
+              selectionOverlay: const SizedBox.shrink(),
+              scrollController: _dateController,
+              onSelectedItemChanged: _onDateChanged,
+              children: _dateOptions.map((date) {
+                return Center(
+                  child: Text(_formatDateOption(date), style: _pickerTextStyle),
+                );
+              }).toList(),
+            ),
+          ),
+          Container(
+            width: 1,
+            margin: const EdgeInsets.symmetric(vertical: 24),
+            color: const Color(0xFFE7EBF0),
+          ),
+          Expanded(
+            child: CupertinoPicker(
+              itemExtent: 44,
+              selectionOverlay: const SizedBox.shrink(),
+              scrollController: _timeController,
+              onSelectedItemChanged: _onTimeChanged,
+              children: _timeOptions.map((time) {
+                return Center(
+                  child: Text(_formatTimeOption(time), style: _pickerTextStyle),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  int _findDateIndex(DateTime value) {
+    final index = _dateOptions.indexWhere((date) => _isSameDay(date, value));
+    return index == -1 ? 0 : index;
+  }
+
+  int _findClosestTimeIndex(List<DateTime> timeOptions, DateTime target) {
+    if (timeOptions.isEmpty) {
+      return 0;
+    }
+
+    var bestIndex = 0;
+    var bestDifference = timeOptions.first.difference(target).inMinutes.abs();
+
+    for (var i = 1; i < timeOptions.length; i++) {
+      final difference = timeOptions[i].difference(target).inMinutes.abs();
+      if (difference < bestDifference) {
+        bestIndex = i;
+        bestDifference = difference;
+      }
+    }
+
+    return bestIndex;
+  }
+}
+
+class _LeaveDayPickerSheet extends StatefulWidget {
+  const _LeaveDayPickerSheet({
+    required this.title,
+    required this.initialValue,
+    required this.minimumDate,
+    required this.maximumDate,
+    this.helperText,
+  });
+
+  final String title;
+  final String? helperText;
+  final LeaveDaySelection initialValue;
+  final DateTime minimumDate;
+  final DateTime maximumDate;
+
+  @override
+  State<_LeaveDayPickerSheet> createState() => _LeaveDayPickerSheetState();
+}
+
+class _LeaveDayPickerSheetState extends State<_LeaveDayPickerSheet> {
+  static const _periodOptions = [
+    LeaveDayPeriod.morning,
+    LeaveDayPeriod.afternoon,
+  ];
+
+  late final List<DateTime> _dateOptions;
+  late final FixedExtentScrollController _dateController;
+  late final FixedExtentScrollController _periodController;
+
+  late int _selectedDateIndex;
+  late int _selectedPeriodIndex;
+
+  LeaveDaySelection get _selectedValue => LeaveDaySelection(
+    date: _dateOptions[_selectedDateIndex],
+    period: _periodOptions[_selectedPeriodIndex],
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _dateOptions = _buildDateOptions(widget.minimumDate, widget.maximumDate);
+    _selectedDateIndex = _findDateIndex(widget.initialValue.date);
+    _selectedPeriodIndex = _periodOptions.indexOf(widget.initialValue.period);
+    _selectedPeriodIndex = _selectedPeriodIndex == -1
+        ? 0
+        : _selectedPeriodIndex;
+    _dateController = FixedExtentScrollController(
+      initialItem: _selectedDateIndex,
+    );
+    _periodController = FixedExtentScrollController(
+      initialItem: _selectedPeriodIndex,
+    );
+  }
+
+  @override
+  void dispose() {
+    _dateController.dispose();
+    _periodController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _PickerScaffold(
+      title: widget.title,
+      helperText: widget.helperText ?? '已选时间',
+      summaryText: _formatDaySummary(_selectedValue),
+      leftTitle: '日期',
+      rightTitle: '时段',
+      onCancel: () => Navigator.of(context).pop(),
+      onConfirm: () => Navigator.of(context).pop(_selectedValue),
+      pickerContent: Row(
+        children: [
+          Expanded(
+            child: CupertinoPicker(
+              itemExtent: 44,
+              selectionOverlay: const SizedBox.shrink(),
+              scrollController: _dateController,
+              onSelectedItemChanged: (index) {
+                setState(() {
+                  _selectedDateIndex = index;
+                });
+              },
+              children: _dateOptions.map((date) {
+                return Center(
+                  child: Text(_formatDateOption(date), style: _pickerTextStyle),
+                );
+              }).toList(),
+            ),
+          ),
+          Container(
+            width: 1,
+            margin: const EdgeInsets.symmetric(vertical: 24),
+            color: const Color(0xFFE7EBF0),
+          ),
+          Expanded(
+            child: CupertinoPicker(
+              itemExtent: 44,
+              selectionOverlay: const SizedBox.shrink(),
+              scrollController: _periodController,
+              onSelectedItemChanged: (index) {
+                setState(() {
+                  _selectedPeriodIndex = index;
+                });
+              },
+              children: _periodOptions.map((period) {
+                return Center(
+                  child: Text(period.label, style: _pickerTextStyle),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  int _findDateIndex(DateTime value) {
+    final index = _dateOptions.indexWhere((date) => _isSameDay(date, value));
+    return index == -1 ? 0 : index;
+  }
+}
+
+class _PickerScaffold extends StatelessWidget {
+  const _PickerScaffold({
+    required this.title,
+    required this.helperText,
+    required this.summaryText,
+    required this.leftTitle,
+    required this.rightTitle,
+    required this.onCancel,
+    required this.onConfirm,
+    required this.pickerContent,
+  });
+
+  final String title;
+  final String helperText;
+  final String summaryText;
+  final String leftTitle;
+  final String rightTitle;
+  final VoidCallback onCancel;
+  final VoidCallback onConfirm;
+  final Widget pickerContent;
+
+  @override
+  Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return SafeArea(
@@ -188,12 +449,12 @@ class _LeaveDateTimePickerSheetState extends State<_LeaveDateTimePickerSheet> {
                   children: [
                     _ActionButton(
                       label: '取消',
-                      onTap: () => Navigator.of(context).pop(),
+                      onTap: onCancel,
                       textColor: const Color(0xFF5C6675),
                     ),
                     Expanded(
                       child: Text(
-                        widget.title,
+                        title,
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Color(0xFF171A1F),
@@ -204,7 +465,7 @@ class _LeaveDateTimePickerSheetState extends State<_LeaveDateTimePickerSheet> {
                     ),
                     _ActionButton(
                       label: '确定',
-                      onTap: () => Navigator.of(context).pop(_selectedValue),
+                      onTap: onConfirm,
                       textColor: const Color(0xFF1677FF),
                     ),
                   ],
@@ -224,7 +485,7 @@ class _LeaveDateTimePickerSheetState extends State<_LeaveDateTimePickerSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        widget.helperText ?? '已选时间',
+                        helperText,
                         style: const TextStyle(
                           color: Color(0xFF7B8794),
                           fontSize: 12,
@@ -233,7 +494,7 @@ class _LeaveDateTimePickerSheetState extends State<_LeaveDateTimePickerSheet> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        _formatSelectedValue(_selectedValue),
+                        summaryText,
                         style: const TextStyle(
                           color: Color(0xFF1677FF),
                           fontSize: 16,
@@ -244,15 +505,15 @@ class _LeaveDateTimePickerSheetState extends State<_LeaveDateTimePickerSheet> {
                   ),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.fromLTRB(24, 16, 24, 4),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 16, 24, 4),
                 child: Row(
                   children: [
                     Expanded(
                       child: Text(
-                        '日期',
+                        leftTitle,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Color(0xFF8B94A1),
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -261,9 +522,9 @@ class _LeaveDateTimePickerSheetState extends State<_LeaveDateTimePickerSheet> {
                     ),
                     Expanded(
                       child: Text(
-                        '时间',
+                        rightTitle,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Color(0xFF8B94A1),
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
@@ -298,55 +559,7 @@ class _LeaveDateTimePickerSheetState extends State<_LeaveDateTimePickerSheet> {
                             ),
                           ),
                         ),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: CupertinoPicker(
-                                itemExtent: 44,
-                                selectionOverlay: const SizedBox.shrink(),
-                                scrollController: _dateController,
-                                onSelectedItemChanged: _onDateChanged,
-                                children: _dateOptions.map((date) {
-                                  return Center(
-                                    child: Text(
-                                      _formatDateOption(date),
-                                      style: const TextStyle(
-                                        color: Color(0xFF171A1F),
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                            Container(
-                              width: 1,
-                              margin: const EdgeInsets.symmetric(vertical: 24),
-                              color: const Color(0xFFE7EBF0),
-                            ),
-                            Expanded(
-                              child: CupertinoPicker(
-                                itemExtent: 44,
-                                selectionOverlay: const SizedBox.shrink(),
-                                scrollController: _timeController,
-                                onSelectedItemChanged: _onTimeChanged,
-                                children: _timeOptions.map((time) {
-                                  return Center(
-                                    child: Text(
-                                      _formatTimeOption(time),
-                                      style: const TextStyle(
-                                        color: Color(0xFF171A1F),
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ],
-                        ),
+                        pickerContent,
                       ],
                     ),
                   ),
@@ -357,30 +570,6 @@ class _LeaveDateTimePickerSheetState extends State<_LeaveDateTimePickerSheet> {
         ),
       ),
     );
-  }
-
-  int _findDateIndex(DateTime value) {
-    final index = _dateOptions.indexWhere((date) => _isSameDay(date, value));
-    return index == -1 ? 0 : index;
-  }
-
-  int _findClosestTimeIndex(List<DateTime> timeOptions, DateTime target) {
-    if (timeOptions.isEmpty) {
-      return 0;
-    }
-
-    var bestIndex = 0;
-    var bestDifference = timeOptions.first.difference(target).inMinutes.abs();
-
-    for (var i = 1; i < timeOptions.length; i++) {
-      final difference = timeOptions[i].difference(target).inMinutes.abs();
-      if (difference < bestDifference) {
-        bestIndex = i;
-        bestDifference = difference;
-      }
-    }
-
-    return bestIndex;
   }
 }
 
@@ -407,6 +596,12 @@ class _ActionButton extends StatelessWidget {
     );
   }
 }
+
+const _pickerTextStyle = TextStyle(
+  color: Color(0xFF171A1F),
+  fontSize: 17,
+  fontWeight: FontWeight.w500,
+);
 
 List<DateTime> _buildDateOptions(DateTime minimumDate, DateTime maximumDate) {
   final firstDay = _dateOnly(minimumDate);
@@ -458,13 +653,21 @@ DateTime _dateOnly(DateTime value) {
   return DateTime(value.year, value.month, value.day);
 }
 
-bool _isSameDay(DateTime a, DateTime b) {
-  return a.year == b.year && a.month == b.month && a.day == b.day;
+bool _isSameDay(DateTime left, DateTime right) {
+  return left.year == right.year &&
+      left.month == right.month &&
+      left.day == right.day;
 }
 
-String _formatSelectedValue(DateTime value) {
+String _formatDateTimeSummary(DateTime value) {
   return '${value.year}-${_pad(value.month)}-${_pad(value.day)} '
       '${_weekday(value)} ${_pad(value.hour)}:${_pad(value.minute)}';
+}
+
+String _formatDaySummary(LeaveDaySelection selection) {
+  final date = selection.date;
+  return '${date.year}-${_pad(date.month)}-${_pad(date.day)} '
+      '${_weekday(date)} ${selection.period.label}';
 }
 
 String _formatDateOption(DateTime value) {
